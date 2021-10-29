@@ -10,6 +10,8 @@ public struct MovementType
     public float maxHeightLift;
     public float stepSize;
     public float stepDuration;
+    public int[] stepOrder;
+    public float[] delayBeforeStep; // in percentage
 }
 
 public enum MoveTypeIndex

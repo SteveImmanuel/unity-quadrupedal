@@ -1,8 +1,6 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Animations.Rigging;
 
 public class StepSolver : MonoBehaviour
 {
@@ -16,53 +14,36 @@ public class StepSolver : MonoBehaviour
 
     [Header("Movement Config")]
     public MovementType[] movementTypes;
-    public MultiPositionConstraint bodyContraint;
 
+    private bool isMoving;
     private int moveTypeIdx;
-
-    private Vector3[] targetPos = new Vector3[] { Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero };
+    private int iteratorFootIdx;
+    private bool[] isStepComplete;
 
     private void Awake()
     {
-        targetPos = new Vector3[] { Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero };
+        isStepComplete = new bool[] { true, true, true, true};
     }
 
     private void Start()
     {
-        StartWalkSequence();
+        iteratorFootIdx = 0;
+        moveTypeIdx = 0;
     }
 
-    void Update()
+    private void Update()
     {
-    }
-
-    private void StartWalkSequence()
-    {
-        moveTypeIdx = (int)MoveTypeIndex.WALK;
-
-        StartCoroutine(SmoothMove((int)FootIndex.REAR_LEFT, moveTypeIdx, 0.2f, () =>
+        if (Input.GetKey(KeyCode.W))
         {
-            StartCoroutine(SmoothMove((int)FootIndex.FRONT_LEFT, moveTypeIdx, 0.9f, () =>
+            isMoving = true;
+            if (Array.TrueForAll(isStepComplete, e => e))
             {
-                StartCoroutine(SmoothMove((int)FootIndex.REAR_RIGHT, moveTypeIdx, 0.2f, () =>
-                {
-                    StartCoroutine(SmoothMove((int)FootIndex.FRONT_RIGHT, moveTypeIdx, 0.9f, () =>
-                    {
-                        StartWalkSequence();
-                    }));
-                }));
-            }));
-        }));
-    }
-
-    private Vector3 GetNextTargetPos(Transform curPos, float stepSize, float maxHeightLift)
-    {
-        Vector3 source = curPos.position + curPos.forward * stepSize;
-        source.y += 0.5f * maxHeightLift;
-        RaycastHit info = RayCastDown(source, maxHeightLift * 5);
-        Vector3 target = info.point;
-        target.y += yOffset;
-        return target;
+                StartCoroutine(SmoothMove());
+            }
+        } else
+        {
+            isMoving = false;
+        }
     }
 
     private RaycastHit RayCastDown(Vector3 pos, float maxDistance)
@@ -72,9 +53,18 @@ public class StepSolver : MonoBehaviour
         return info;
     }
 
+    private Vector3 GetNextTargetPos(Transform curPos, float stepSize, float maxHeightLift)
+    {
+        Vector3 source = curPos.position + curPos.forward * stepSize + curPos.up * maxHeightLift * 2; // 2 is safe value so that the initial pos for raycast is always above the ground
+        RaycastHit info = RayCastDown(source, maxHeightLift * 5); // 5 is to make sure raycast always hits the ground if it exists
+        Vector3 target = info.point;
+        target += curPos.up * yOffset; // add offset because the IK target position is slightly above the ground to accomodate the mesh
+        return target;
+    }
+
     private void SolveAim(Transform foot, float maxHeightLift)
     {
-        RaycastHit info = RayCastDown(foot.position, 5 * maxHeightLift);
+        RaycastHit info = RayCastDown(foot.position, maxHeightLift * 5);
         Vector3 normal = info.normal;
         Vector3 restDirection = Vector3.Cross(foot.right, normal);
         float distanceSqr = Vector3.SqrMagnitude(info.point - foot.position);
@@ -84,49 +74,46 @@ public class StepSolver : MonoBehaviour
         foot.rotation = Quaternion.Lerp(restRotation, liftRotation, distanceSqr / (maxHeightLift * maxHeightLift));
     }
 
-    private IEnumerator SmoothMove(int footIdx, int moveTypeIdx, float completionBeforeCallback, Action callback)
+    private IEnumerator SmoothMove()
     {
         MovementType movementType = movementTypes[moveTypeIdx];
-        targetPos[footIdx] = GetNextTargetPos(feetIKTarget[footIdx], movementType.stepSize, movementType.maxHeightLift);
+
+        int footIdx = movementType.stepOrder[iteratorFootIdx];
+        int nextFootIdx = movementType.stepOrder[(iteratorFootIdx + 1) % 4];
+        Vector3 targetPos = GetNextTargetPos(feetIKTarget[footIdx], movementType.stepSize, movementType.maxHeightLift);
 
         float elapsedTime = 0;
-        float currentStep = 0;
         Vector3 originalPos = feetIKTarget[footIdx].position;
-        bool hasInvokedCallback = false;
+        bool hasInvokedNextStep = false;
+        isStepComplete[footIdx] = false;
 
         while (elapsedTime < movementType.stepDuration)
         {
+            float currentStep = elapsedTime / movementType.stepDuration;
 
-            currentStep = elapsedTime / movementType.stepDuration;
-            elapsedTime += Time.deltaTime;
-
-            Vector3 newPos = Vector3.Lerp(originalPos, targetPos[footIdx], currentStep);
+            Vector3 newPos = Vector3.Lerp(originalPos, targetPos, currentStep);
             float curveEval = movementType.movementCurve.Evaluate(currentStep);
             newPos.y += curveEval * movementType.maxHeightLift;
             feetIKTarget[footIdx].position = newPos;
             SolveAim(feetIKTarget[footIdx], movementType.maxHeightLift);
 
-            if (currentStep >= completionBeforeCallback && !hasInvokedCallback)
+            if (currentStep >= movementType.delayBeforeStep[nextFootIdx] && !hasInvokedNextStep && isMoving)
             {
-                hasInvokedCallback = true;
-                callback?.Invoke();
+                hasInvokedNextStep = true;
+                iteratorFootIdx = (iteratorFootIdx + 1) % 4;
+                StartCoroutine(SmoothMove());
             }
 
+            elapsedTime += Time.deltaTime;
             yield return null;
         }
 
-        feetIKTarget[footIdx].position = targetPos[footIdx];
-    }
+        feetIKTarget[footIdx].position = targetPos;
+        isStepComplete[footIdx] = true;
 
-    private void OnDrawGizmos()
-    {
-        if (targetPos.Length == 0) targetPos = new Vector3[] { Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero };
-        for (int i = 0; i < 4; i++)
+        if (!hasInvokedNextStep)
         {
-            if (targetPos[i] != Vector3.zero)
-            {
-                Gizmos.DrawSphere(targetPos[i], 0.2f);
-            }
+            iteratorFootIdx = (iteratorFootIdx + 1) % 4;
         }
     }
 }

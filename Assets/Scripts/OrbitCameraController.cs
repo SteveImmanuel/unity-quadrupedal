@@ -33,7 +33,7 @@ public class OrbitCameraController : MonoBehaviour
     {
         if (!debugMode || Input.GetButton("Fire2"))
         {
-            xAxisValue = (xAxisValue + Input.GetAxis("Mouse X") * xSensitivity) % 360;
+            xAxisValue = (xAxisValue - Input.GetAxis("Mouse X") * xSensitivity) % 360;
             yAxisValue += Input.GetAxis("Mouse Y") * ySensitivity;
             yAxisValue = Mathf.Clamp(yAxisValue, -Mathf.Cos(Mathf.Deg2Rad * maxAngleFromVertical), Mathf.Cos(Mathf.Deg2Rad * maxAngleFromVertical));
         }

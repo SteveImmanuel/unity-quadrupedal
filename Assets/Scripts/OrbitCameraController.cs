@@ -10,6 +10,7 @@ public class OrbitCameraController : MonoBehaviour
 
     [Header("Y Axis")]
     public float yAxisValue;
+    public bool invertYAxis;
     public float ySensitivity = 0.1f;
     [Range(0f, 90f)]
     public float maxAngleFromVertical;
@@ -17,6 +18,7 @@ public class OrbitCameraController : MonoBehaviour
     [Header("X Axis")]
     [Range(0f, 359f)]
     public float xAxisValue;
+    public bool invertXAxis;
     public float xSensitivity = 4f;
 
     private Vector3 refVelocity;
@@ -33,8 +35,8 @@ public class OrbitCameraController : MonoBehaviour
     {
         if (!debugMode || Input.GetButton("Fire2"))
         {
-            xAxisValue = (xAxisValue - Input.GetAxis("Mouse X") * xSensitivity) % 360;
-            yAxisValue += Input.GetAxis("Mouse Y") * ySensitivity;
+            xAxisValue = (xAxisValue + Input.GetAxis("Mouse X") * xSensitivity * (invertXAxis ? 1 : -1)) % 360;
+            yAxisValue += Input.GetAxis("Mouse Y") * ySensitivity * (invertYAxis ? 1 : -1);
             yAxisValue = Mathf.Clamp(yAxisValue, -Mathf.Cos(Mathf.Deg2Rad * maxAngleFromVertical), Mathf.Cos(Mathf.Deg2Rad * maxAngleFromVertical));
         }
 

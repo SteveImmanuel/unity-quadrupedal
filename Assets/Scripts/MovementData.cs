@@ -5,6 +5,7 @@ using UnityEngine;
 [System.Serializable]
 public struct MovementType
 {
+    public string name;
     public float speed;
     public AnimationCurve movementCurve;
     public float maxHeightLift;

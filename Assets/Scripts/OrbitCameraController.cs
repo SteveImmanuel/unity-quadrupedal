@@ -9,6 +9,7 @@ public class OrbitCameraController : MonoBehaviour
     public float orbitRadius = 10;
 
     [Header("Y Axis")]
+    [Range(-1f, 1f)]
     public float yAxisValue;
     public bool invertYAxis;
     public float ySensitivity = 0.1f;
@@ -37,9 +38,9 @@ public class OrbitCameraController : MonoBehaviour
         {
             xAxisValue = (xAxisValue + Input.GetAxis("Mouse X") * xSensitivity * (invertXAxis ? 1 : -1)) % 360;
             yAxisValue += Input.GetAxis("Mouse Y") * ySensitivity * (invertYAxis ? 1 : -1);
-            yAxisValue = Mathf.Clamp(yAxisValue, -Mathf.Cos(Mathf.Deg2Rad * maxAngleFromVertical), Mathf.Cos(Mathf.Deg2Rad * maxAngleFromVertical));
         }
 
+        yAxisValue = Mathf.Clamp(yAxisValue, -Mathf.Cos(Mathf.Deg2Rad * maxAngleFromVertical), Mathf.Cos(Mathf.Deg2Rad * maxAngleFromVertical));
         offset.y = yAxisValue * orbitRadius;
         radiusAtY = Mathf.Sqrt(Mathf.Pow(orbitRadius, 2) - Mathf.Pow(offset.y, 2));
         offset.x = Mathf.Cos(Mathf.Deg2Rad * xAxisValue) * radiusAtY;

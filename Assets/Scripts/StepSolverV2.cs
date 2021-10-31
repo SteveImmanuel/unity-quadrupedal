@@ -16,7 +16,8 @@ public class StepSolverV2 : MonoBehaviour
     [Header("Movement Config")]
     public MovementType[] movementTypes;
 
-    private MovementType moveType;
+    [HideInInspector] public MovementType moveType;
+
     private int iteratorFootIdx;
     private bool[] isStepComplete;
     private Vector3[] targetPos;
@@ -32,10 +33,6 @@ public class StepSolverV2 : MonoBehaviour
             targetPos[i] = feetNormalPos[i].position;
             targetRot[i] = feetNormalPos[i].rotation;
         }
-    }
-
-    private void Start()
-    {
         iteratorFootIdx = 0;
         moveType = movementTypes[0];
     }
@@ -47,12 +44,14 @@ public class StepSolverV2 : MonoBehaviour
             int footIdx = moveType.stepOrder[iteratorFootIdx];
             if (isStepComplete[i])
             {
-                if (Vector3.SqrMagnitude(targetPos[footIdx] - feetNormalPos[footIdx].position) > Mathf.Pow(moveType.stepSize, 2) && i == footIdx)
+                if (Vector3.SqrMagnitude(targetPos[footIdx] - feetNormalPos[footIdx].position) > Mathf.Pow(moveType.stepSize, 2) / 2 && i == footIdx)
                 {
+                    //Debug.Log("do step");
                     StartCoroutine(SmoothMove());
                 }
                 else
                 {
+                    //Debug.Log("maintain pos");
                     feetIKTarget[i].position = targetPos[i];
                     feetIKTarget[i].rotation = targetRot[i];
                 }
@@ -60,13 +59,6 @@ public class StepSolverV2 : MonoBehaviour
         }
 
 
-    }
-
-    private RaycastHit RayCastDown(Vector3 pos, float maxDistance)
-    {
-        Ray downRay = new Ray(pos, Vector3.down);
-        Physics.Raycast(downRay, out RaycastHit info, maxDistance, terrainLayer);
-        return info;
     }
 
     //private void SolveAim(Transform foot, Quaternion targetRot, float maxHeightLift)
